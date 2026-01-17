@@ -1,12 +1,36 @@
 {
   "name": "server",
-  "module": "index.ts",
+  "module": "server.ts",
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/pg": "^8.16.0",
+    "drizzle-kit": "^0.31.8",
+    "nodemon": "^3.1.11",
+    "tsx": "^4.21.0"
+  },
+  "scripts": {
+    "dev": "nodemon server.ts",
+    "dev:bun": "bun --watch server.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.6",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "openai": "^6.16.0",
+    "pg": "^8.17.1",
+    "socket.io": "^4.8.3"
   }
 }
