@@ -13,6 +13,17 @@ A full-stack AI-powered chat application built with Next.js, Node.js, and Postgr
 -   [x] **Responsive UI**: Modern interface with verified auto-scrolling and timestamp displays.
 -   [x] **Theme Support**: Dark/Light mode support (via Shadcn/Next-themes).
 
+## Previews
+
+### Desktop
+![Desktop Preview](./assets/preview_pc.png)
+
+### Mobile
+<p float="left">
+  <img src="./assets/preview_mobile_light.png" width="45%" />
+  <img src="./assets/preview_mobile_dark.png" width="45%" /> 
+</p>
+
 ## Tech Stack & Libraries
 
 ### Client
