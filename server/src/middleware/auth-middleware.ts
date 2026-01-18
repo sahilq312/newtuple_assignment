@@ -18,6 +18,22 @@ const getJwtSecret = (): string => {
   return secret;
 };
 
+export const verifyToken = (token: string): number | null => {
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    if (
+      typeof decoded !== "object" ||
+      decoded === null ||
+      !("userId" in decoded)
+    ) {
+      return null;
+    }
+    return (decoded as JwtPayload & { userId: number }).userId;
+  } catch (error) {
+    return null;
+  }
+}
+
 export const authorize = (req: Request, res: Response, next: NextFunction) => {
   try {
     let token: string | undefined;

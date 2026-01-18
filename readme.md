@@ -27,7 +27,7 @@ A full-stack AI-powered chat application built with Next.js, Node.js, and Postgr
 -   **Framework**: Express.js
 -   **Database**: PostgreSQL
 -   **ORM**: Drizzle ORM
--   **Real-time**: Socket.IO (Integration ready), Server-Sent Events (SSE) for streaming
+-   **Real-time**: Socket.IO for chat messaging and streaming
 -   **Authentication**: JSON Web Tokens (JWT), Bcrypt.js
 -   **AI Integration**: OpenAI SDK
 

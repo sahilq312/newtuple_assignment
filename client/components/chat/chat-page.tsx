@@ -10,6 +10,8 @@ type SessionEvent = {
   sessionId: number;
 };
 
+import { useSocket } from "@/components/providers/socket-provider";
+
 export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
   const router = useRouter();
   const sessionIdFromUrl = chat_id ? Number(chat_id) : null;
@@ -17,7 +19,51 @@ export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
   const sessionId = sessionIdFromUrl ?? localSessionId;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  
+  const { socket, isConnected } = useSocket();
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    const onToken = (data: { chunk: string; sessionId: number }) => {
+      setMessages((prev) => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.role === "assistant") {
+          const updated = { ...lastMsg, content: lastMsg.content + data.chunk };
+          return [...prev.slice(0, -1), updated];
+        }
+        return prev;
+      });
+    };
+
+    const onSessionCreated = (data: { sessionId: number }) => {
+      setLocalSessionId(data.sessionId);
+      router.replace(`/chat?id=${data.sessionId}`);
+    };
+
+    const onCompleted = () => {
+      setLoading(false);
+    };
+
+    const onError = (data: { message: string }) => {
+      console.error("Chat error:", data.message);
+      setLoading(false);
+    };
+
+    socket.on("chat:token", onToken);
+    socket.on("session:created", onSessionCreated);
+    socket.on("chat:completed", onCompleted);
+    socket.on("chat:error", onError);
+
+    return () => {
+      socket.off("chat:token", onToken);
+      socket.off("session:created", onSessionCreated);
+      socket.off("chat:completed", onCompleted);
+      socket.off("chat:error", onError);
+    };
+  }, [socket, router]);
+
+  // Fetch initial history (HTTP is fine for this)
   useEffect(() => {
     if (!sessionIdFromUrl) return;
 
@@ -47,6 +93,7 @@ export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
 
   async function sendMessage(prompt: string) {
     if (!prompt.trim()) return;
+    if (!socket) return;
 
     setLoading(true);
 
@@ -56,74 +103,18 @@ export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
       content: prompt,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-
     const assistantId = crypto.randomUUID();
-    setMessages((prev) => [
-      ...prev,
-      { id: assistantId, role: "assistant", content: "" },
-    ]);
+    const assistantMessage: ChatMessage = {
+      id: assistantId, role: "assistant", content: ""
+    };
 
-    const response = await fetch("http://localhost:8000/v1/ai/chat", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        history: [...messages, userMessage],
-        sessionId,
-      }),
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+
+    socket.emit("chat:message", {
+      prompt,
+      history: [...messages, userMessage],
+      sessionId,
     });
-
-    if (!response.body) {
-      setLoading(false);
-      throw new Error("No response body");
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    let buffer = "";
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      const frames = buffer.split("\n\n");
-      buffer = frames.pop() || "";
-
-      for (const frame of frames) {
-        if (frame.startsWith("event: session")) {
-          const dataLine = frame.split("\n").find((l) => l.startsWith("data:"));
-
-          if (!dataLine) continue;
-
-          const payload: SessionEvent = JSON.parse(
-            dataLine.replace("data: ", ""),
-          );
-
-          setLocalSessionId(payload.sessionId);
-
-          // Update URL without reload
-          router.replace(`/chat?id=${payload.sessionId}`);
-          continue;
-        }
-
-        if (frame.startsWith("data:")) {
-          const chunk = frame.replace("data: ", "");
-
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: m.content + chunk } : m,
-            ),
-          );
-        }
-      }
-    }
-
-    setLoading(false);
   }
 
   return (

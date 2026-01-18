@@ -14,14 +14,14 @@ const Login = async (email: string, password: string) => {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || "Login failed");
+      //throw new Error(error.message || "Login failed");
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
     console.error("Login error:", error);
-    throw error;
+    //throw error;
   }
 };
 

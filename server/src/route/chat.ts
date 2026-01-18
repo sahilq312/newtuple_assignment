@@ -1,6 +1,5 @@
 import express from "express";
 import {
-  chatHandler,
   getChatHistory,
   getChatSession,
   deleteChatHandler
@@ -9,7 +8,6 @@ import {
 const ai_router = express.Router();
 
 ai_router
-  .post("/chat", chatHandler)
   .get("/chat/history", getChatHistory)
   .get("/chat/:session_id", getChatSession)
   .delete("/chat/:session_id", deleteChatHandler);
