@@ -112,7 +112,7 @@ The application will be available at `http://localhost:3000`.
 ## 📜 Assignment details
 
 -   **Time Spent**: 12 hours
--   **Demo Video**: [Insert Demo Video Link]
+-   **Demo Video**: [https://youtu.be/Ra6Yi9umzJs]
 
 ## Commands
 
@@ -126,4 +126,3 @@ The application will be available at `http://localhost:3000`.
 | `npm run dev` | Starts Next.js development server |
 | `npm run build` | Builds the application for production |
 | `npm run start` | Starts the production server |
-
