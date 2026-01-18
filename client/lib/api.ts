@@ -71,4 +71,23 @@ const getChatHistory = async () => {
   }
 };
 
-export { SignUp, Login, getChatHistory };
+const deleteChatSession = async (sessionId: number) => {
+  try {
+    const response = await fetch(`http://localhost:8000/v1/ai/chat/${sessionId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to delete chat session");
+    }
+
+    return response.json();
+  } catch (err) {
+    console.error("deleteChatSession error:", err);
+    throw err;
+  }
+}
+
+export { SignUp, Login, getChatHistory, deleteChatSession };

@@ -51,7 +51,7 @@ const chatHandler = async (req: Request, res: Response) => {
 
       res.write(
         `event: session\n` +
-          `data: ${JSON.stringify({ sessionId: activeSessionId })}\n\n`,
+        `data: ${JSON.stringify({ sessionId: activeSessionId })}\n\n`,
       );
     }
 
@@ -196,4 +196,33 @@ const getChatSession = async (req: Request, res: Response) => {
   }
 };
 
-export { chatHandler, getChatHistory, getChatSession };
+const deleteChatHandler = async (req: Request, res: Response) => {
+  try {
+    const sessionId = Number(req.params.session_id);
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!sessionId) {
+      return res.status(400).json({ error: "Invalid session id" });
+    }
+
+    await db
+      .delete(messageSession)
+      .where(
+        and(
+          eq(messageSession.id, sessionId),
+          eq(messageSession.userId, userId),
+        ),
+      );
+
+    return res.json({ success: true, message: "Chat session deleted successfully" });
+  } catch (error) {
+    console.error("Delete chat error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export { chatHandler, getChatHistory, getChatSession, deleteChatHandler };
