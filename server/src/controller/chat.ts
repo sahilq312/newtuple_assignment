@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import "dotenv/config";
 import { db } from "../..";
 import { message, messageSession } from "../db/schema";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { setTitle } from "../lib/openai-vendor";
 
 const openai = new OpenAI({
@@ -122,7 +122,8 @@ const getChatHistory = async (req: Request, res: Response) => {
     const chatHistory = await db
       .select()
       .from(messageSession)
-      .where(eq(messageSession.userId, userId));
+      .where(eq(messageSession.userId, userId))
+      .orderBy(desc(messageSession.createdAt));
 
     return res.status(200).json({
       success: true,
