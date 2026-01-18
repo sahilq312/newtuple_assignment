@@ -1,5 +1,5 @@
 type Message = {
   id: String;
   content: string;
-  owner: "user" | "assistant";
+  owner: "system" | "user" | "assistant";
 };

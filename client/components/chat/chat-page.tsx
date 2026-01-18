@@ -1,14 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChatInput } from "./chat-input";
 import { ChatMessages } from "./chat-messages";
 import { ChatMessage } from "@/types/chat";
 
-export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+type SessionEvent = {
+  sessionId: number;
+};
 
+export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
+  const router = useRouter();
+
+  /* ===========================
+     SESSION STATE (CORRECT)
+  =========================== */
+
+  // Session derived from URL (source of truth)
+  const sessionIdFromUrl = chat_id ? Number(chat_id) : null;
+
+  // Session created lazily by backend
+  const [localSessionId, setLocalSessionId] = useState<number | null>(null);
+
+  // Effective session id
+  const sessionId = sessionIdFromUrl ?? localSessionId;
+
+  /* ===========================
+          CHAT STATE
+  =========================== */
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+
+  /* ===========================
+      LOAD EXISTING CHAT
+  =========================== */
+
+  useEffect(() => {
+    if (!sessionIdFromUrl) return;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:8000/v1/ai/chat/${sessionIdFromUrl}`,
+          { credentials: "include" },
+        );
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        setMessages(
+          data.messages.map((m: any) => ({
+            id: String(m.id),
+            role: m.role,
+            content: m.content,
+          })),
+        );
+      } catch (err) {
+        console.error("Failed to load chat session", err);
+      }
+    })();
+  }, [sessionIdFromUrl]);
 
   async function sendMessage(prompt: string) {
     if (!prompt.trim()) return;
@@ -21,10 +75,8 @@ export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
       content: prompt,
     };
 
-    // Add user message immediately
     setMessages((prev) => [...prev, userMessage]);
 
-    // Create placeholder assistant message
     const assistantId = crypto.randomUUID();
     setMessages((prev) => [
       ...prev,
@@ -38,6 +90,7 @@ export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
       body: JSON.stringify({
         prompt,
         history: [...messages, userMessage],
+        sessionId,
       }),
     });
 
@@ -49,18 +102,44 @@ export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
+    let buffer = "";
+
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
+      buffer += decoder.decode(value, { stream: true });
 
-      // Append streamed chunk to assistant message
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId ? { ...m, content: m.content + chunk } : m,
-        ),
-      );
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() || "";
+
+      for (const frame of frames) {
+        if (frame.startsWith("event: session")) {
+          const dataLine = frame.split("\n").find((l) => l.startsWith("data:"));
+
+          if (!dataLine) continue;
+
+          const payload: SessionEvent = JSON.parse(
+            dataLine.replace("data: ", ""),
+          );
+
+          setLocalSessionId(payload.sessionId);
+
+          // Update URL without reload
+          router.replace(`/chat?id=${payload.sessionId}`);
+          continue;
+        }
+
+        if (frame.startsWith("data:")) {
+          const chunk = frame.replace("data: ", "");
+
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: m.content + chunk } : m,
+            ),
+          );
+        }
+      }
     }
 
     setLoading(false);

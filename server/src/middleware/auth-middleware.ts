@@ -19,9 +19,6 @@ const getJwtSecret = (): string => {
 };
 
 export const authorize = (req: Request, res: Response, next: NextFunction) => {
-  console.log("Cookies:", req.cookies);
-  console.log("Auth header:", req.headers.authorization);
-
   try {
     let token: string | undefined;
 

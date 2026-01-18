@@ -3,8 +3,8 @@ import type { ChatMessage } from "../../types";
 import OpenAI from "openai";
 import "dotenv/config";
 import { db } from "../..";
-import { messageSession } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { message, messageSession } from "../db/schema";
+import { and, asc, eq } from "drizzle-orm";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY as string,
@@ -16,27 +16,62 @@ type ClientMessage = {
 };
 
 const chatHandler = async (req: Request, res: Response) => {
-  const { prompt, history } = req.body as {
+  const { prompt, history, sessionId } = req.body as {
     prompt: string;
     history: ClientMessage[];
+    sessionId?: number;
   };
 
-  // --- SSE HEADERS ---
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  const userId = req.userId;
+
+  if (!userId) {
+    res.status(401).end();
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
-  // 🚨 IMPORTANT: strip IDs before sending to OpenAI
-  const messages: ClientMessage[] = [
-    ...history.map((m) => ({
-      role: m.role,
-      content: m.content,
-    })),
-    { role: "user", content: prompt },
-  ];
+  let activeSessionId = sessionId;
 
   try {
+
+    if (!activeSessionId) {
+      const [newSession] = await db
+        .insert(messageSession)
+        .values({
+          userId,
+          title: "New Chat",
+        })
+        .returning({ id: messageSession.id });
+
+      activeSessionId = newSession!.id;
+
+      res.write(
+        `event: session\n` +
+          `data: ${JSON.stringify({ sessionId: activeSessionId })}\n\n`,
+      );
+    }
+
+    await db.insert(message).values({
+      sessionId: activeSessionId,
+      role: "user",
+      content: prompt,
+    });
+
+    const messages: ClientMessage[] = [
+      ...history.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      { role: "user", content: prompt },
+    ];
+
+    let assistantContent = "";
+
+
     const stream = await openai.responses.stream({
       model: "gpt-4.1-mini",
       input: messages,
@@ -44,17 +79,29 @@ const chatHandler = async (req: Request, res: Response) => {
 
     for await (const event of stream) {
       if (event.type === "response.output_text.delta") {
-        res.write(event.delta); // raw chunk
+        assistantContent += event.delta;
+
+        res.write(`data: ${event.delta}\n\n`);
       }
 
       if (event.type === "response.completed") {
-        res.write("\n"); // clean termination
-        res.end();
+        break;
       }
     }
+
+    await db.insert(message).values({
+      sessionId: activeSessionId,
+      role: "assistant",
+      content: assistantContent,
+    });
+
+    res.end();
   } catch (err) {
+    console.error(err);
+
     const message = err instanceof Error ? err.message : "Unknown error";
-    res.write(`\n[ERROR]: ${message}`);
+
+    res.write(`event: error\ndata: ${message}\n\n`);
     res.end();
   }
 };
@@ -94,4 +141,59 @@ const getChatHistory = async (req: Request, res: Response) => {
   }
 };
 
-export { chatHandler, getChatHistory };
+const getChatSession = async (req: Request, res: Response) => {
+  const sessionId = Number(req.params.session_id);
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (!sessionId) {
+    return res.status(400).json({ error: "Invalid session id" });
+  }
+
+  try {
+    const sessionRows = await db
+      .select()
+      .from(messageSession)
+      .where(
+        and(
+          eq(messageSession.id, sessionId),
+          eq(messageSession.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    const session = sessionRows[0];
+
+    if (!session) {
+      return res.status(404).json({ error: "Chat session not found" });
+    }
+
+    const messages = await db
+      .select({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        createdAt: message.createdAt,
+      })
+      .from(message)
+      .where(eq(message.sessionId, sessionId))
+      .orderBy(asc(message.createdAt));
+
+    return res.json({
+      session: {
+        id: session.id,
+        title: session.title,
+        createdAt: session.createdAt,
+      },
+      messages,
+    });
+  } catch (error) {
+    console.error("getChatSession error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export { chatHandler, getChatHistory, getChatSession };
