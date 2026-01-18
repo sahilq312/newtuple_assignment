@@ -5,6 +5,7 @@ import "dotenv/config";
 import { db } from "../..";
 import { message, messageSession } from "../db/schema";
 import { and, asc, eq } from "drizzle-orm";
+import { setTitle } from "../lib/openai-vendor";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY as string,
@@ -39,11 +40,12 @@ const chatHandler = async (req: Request, res: Response) => {
   try {
 
     if (!activeSessionId) {
+      const title = await setTitle(prompt);
       const [newSession] = await db
         .insert(messageSession)
         .values({
           userId,
-          title: "New Chat",
+          title,
         })
         .returning({ id: messageSession.id });
 

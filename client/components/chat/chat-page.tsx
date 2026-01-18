@@ -12,31 +12,12 @@ type SessionEvent = {
 
 export const ChatPage = ({ chat_id }: { chat_id: string | null }) => {
   const router = useRouter();
-
-  /* ===========================
-     SESSION STATE (CORRECT)
-  =========================== */
-
-  // Session derived from URL (source of truth)
   const sessionIdFromUrl = chat_id ? Number(chat_id) : null;
-
-  // Session created lazily by backend
   const [localSessionId, setLocalSessionId] = useState<number | null>(null);
-
-  // Effective session id
   const sessionId = sessionIdFromUrl ?? localSessionId;
-
-  /* ===========================
-          CHAT STATE
-  =========================== */
-
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
-
-  /* ===========================
-      LOAD EXISTING CHAT
-  =========================== */
-
+  
   useEffect(() => {
     if (!sessionIdFromUrl) return;
 

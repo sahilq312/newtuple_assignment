@@ -58,7 +58,6 @@ export function AppSidebar() {
       setChatHistory((prev) => prev.filter((chat) => chat.id !== id));
     } catch (err) {
       console.error("Failed to delete chat", err);
-      // Optional: Add toast notification here
     }
   };
 
@@ -66,12 +65,12 @@ export function AppSidebar() {
     <Sidebar>
       {/* Header with New Chat Button */}
       <SidebarHeader>
-        <Link href="/chat" className="w-full">
+        <a href="/chat" className="w-full">
           <Button className="w-full gap-2">
             <Plus className="size-4" />
             New Chat
           </Button>
-        </Link>
+        </a>
       </SidebarHeader>
 
       <SidebarSeparator />

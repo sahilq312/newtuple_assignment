@@ -37,10 +37,11 @@ export const ChatInput = ({
           }}
         />
 
-        <InputGroupAddon align="block-end">
+        <InputGroupAddon align="inline-end">
           <InputGroupButton disabled>{prompt.length}/200</InputGroupButton>
 
           <InputGroupButton
+            className="bg-primary text-primary-foreground rounded-full"
             onClick={handleSend}
             disabled={isButtonDisabled || loading}
           >
